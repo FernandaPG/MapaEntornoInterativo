@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mapa Interativo Entorno API 8</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            display: flex; /* Define o body como um contêiner flexível */
+            flex-direction: column; /* Organiza os filhos em coluna */
+            min-height: 100vh; /* Garante que o body ocupe no mínimo 100% da altura da viewport */
+        }
+
+        #map-container {
+            display: flex; /* Define o contêiner do mapa e sidebar como flexível */
+            flex-grow: 1; /* Permite que este contêiner ocupe todo o espaço restante verticalmente */
+            /* Se houver um cabeçalho/rodapé, ajuste esta altura:
+               height: calc(100vh - ALTURA_DO_CABECALHO - ALTURA_DO_RODAPE);
+               Caso contrário, flex-grow 1 já deve ser suficiente com min-height do body.
+            */
+            min-height: 500px; /* Garante uma altura mínima para o mapa/sidebar */
+        }
+
+        #sidebar {
+            width: 300px; /* Largura fixa da barra lateral */
+            background-color: #f8f8f8;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            overflow-y: auto; /* Permite rolagem do conteúdo da sidebar */
+            font-family: Arial, sans-serif;
+            color: #333;
+            flex-shrink: 0; /* Impede que a sidebar encolha */
+        }
+
+        #sidebar h2 {
+            margin-top: 0;
+            color: #444;
+        }
+
+        .legend-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .legend-color-box {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+        }
+
+        #map {
+            flex-grow: 1; /* O mapa ocupará todo o espaço restante horizontalmente */
+            height: 100vh; /* Ocupa 100% da altura do seu contêiner pai (#map-container) */
+            min-height: 400px;
+            /* Garante que o Mapbox possa renderizar. */
+        }
+
+        .marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid oklch(100% 0.00011 271.152);
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div id="sidebar">
+            <h2>Mapa interativo de análise de entorno urbano</h2>
+            <p>Este é um mapa interativo com pontos de interesse ao redor do terreno escolhido para a disciplina de API 8, pelo escritório Alliers.</p>
+
+            <div class="legend-section">
+                <h3>Legenda</h3>
+                <div id="legend-content">
+                    </div>
+            </div>
+
+            <p style="margin-top: 30px; font-size: 0.9em; color: #777;">Desenvolvido com Mapbox GL JS/Alliers Arquitetos.</p>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // SEU TOKEN DE ACESSO DO MAPBOX - VERIFIQUE SE ESTÁ CORRETO NO SEU DASHBOARD
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZmVycGluaGVpcm9nIiwiYSI6ImNtZDh3a2hzMjAxaWwybG9yMXk4eGJqdm8ifQ.nNlrYLHrWQyBxXxElIAqEA';
+
+        const map = new mapboxgl.Map({
+            container: 'map', 
+            style: 'mapbox://styles/ferpinheirog/cmd51n6qa01xe01s4amxx0dxf', 
+            center: [-48.28573327512392,-18.950018982146965], 
+            zoom: 15
+        });
+
+        const pontos = [
+            {
+                nome: " Polo Tecnológico – 40 m do terreno", 
+                descricao: " Oportunidade: Sinergia direta com o tema do projeto; possibilita parcerias acadêmicas,incubação de startups e intercâmbio tecnológico.Desafio: Concorrer por visibilidade institucional e evitar sobreposição de funções.Diretriz de decisão: Criar uma conexão simbólica e física com o Pólo (eixo verde, passarela, corredor de inovação)",
+                coordenadas: [-48.289256292315756,-18.951636509592387], 
+                cor: 'orange', 
+                categoria: 'Serviço' 
+            },
+            {
+                nome: "Posto de gasolina+restaurante – 100 m", 
+                descricao: " Oportunidade: Garante conveniência e serviços imediatos para estudantes e funcionários,além de aumentar a vitalidade urbana ao redor do campus.Desafio: Pode gerar ruído e tráfego de veículos próximo à entrada principal.Diretriz de decisão: Implantar barreiras verdes e organizar acessos seguros para pedestres, mantendo uma fachada ativa voltada para a rua.",
+                coordenadas: [-48.28496207565561,-18.949820724988896], 
+                cor: 'red', 
+                categoria: 'Comércio' 
+            },
+            {
+                nome: "Uberlândia Shopping – 900 m", 
+                descricao: "Oportunidade: Oferece infraestrutura de lazer e alimentação para usuários do campus.Desafio: Distância intermediária pode gerar dependência de transporte individual.Diretriz de decisão: Incentivar mobilidade ativa (bicicletas, caminhos sombreados) e criar parcerias para serviços compartilhados (alimentação, eventos).",
+                coordenadas: [-48.27779656163065,-18.957346441410476], 
+                cor: 'red', 
+                categoria: 'Comércio' 
+            },
+            {
+                nome: " Uniube – Campus Vila Gávea – 800 m", 
+                descricao: " Oportunidade: Fortalece o eixo universitário do sul da cidade, abrindo espaço para cooperação em pesquisa e programas conjuntos.Desafio: Risco de redundância de cursos se a identidade da nova universidade não for clara.Diretriz de decisão: Reforçar o foco exclusivo em cibersegurança e tecnologia aplicada.",
+                coordenadas: [-48.28066179046613,-18.956298188193262, ], 
+                cor: 'grey',
+                categoria: 'Institucional'
+            },
+            {
+                nome: "Gávea Paradiso – 100 m", 
+                descricao: "Oportunidade: Contexto residencial qualificado que valoriza o entorno do campus.Desafio: Sensibilidade acústica e necessidade de controle de fluxo.Diretriz de decisão: Projetar transição suave entre o campus e o bairro, com zonas verdes e espaços de convivência de baixa densidade.",
+                coordenadas: [-48.2832365541649,-18.953532895408507], 
+                cor: 'yellow',
+                categoria: 'Residencial'
+            },
+            {
+                nome: "World Trade Center Uberlândia – 1 km", 
+                descricao: " Oportunidade: Proximidade de um novo polo empresarial de alto padrão, ideal para estágios e conexões com o setor privado.Desafio: Tráfego intenso e pressão imobiliária crescente.Diretriz de decisão: Prever acessos alternativos e parcerias institucionais para inovação aplicada.",
+                coordenadas: [-48.278044621151274,-18.959894356207627], 
+                cor: 'red',
+                categoria: 'Comércio'
+            },
+            {
+                nome: "Parque Una – 1,4 km", 
+                descricao: "Oportunidade: Modelo urbano sustentável e de integração entre natureza e cidade.Desafio: Distância moderada; pouco impacto direto, mas referência conceitual forte.Diretriz de decisão: Inspirar-se em sua lógica paisagística para compor áreas externas do campus",
+                coordenadas: [-48.27611295775769,-18.961496214224788], 
+                cor: 'green',
+                categoria: 'Parque'
+            },
+            {
+                nome: "UNITRI – 1,5 km", 
+                descricao: " Oportunidade: Cria uma rede acadêmica consolidada, fortalecendo a reputação da região como polo de ensino superior.Desafio: Saturação do mercado estudantil local.Diretriz de decisão: Oferecer cursos de nicho e parcerias em pesquisa tecnológica aplicada.",
+                coordenadas: [-48.27156477512358,-18.956655723003788], 
+                cor: 'grey',
+                categoria: 'Institucional'
+            },
+            {
+                nome: "Parque Municipal da Gávea – 600 m", 
+                descricao: "Oportunidade: Potencial de conexão ecológica e de lazer para estudantes e comunidade.Desafio: Garantir segurança e acessos adequados.Diretriz de decisão: Integrar eixos verdes e percursos de caminhada conectando o parque ao campus.",
+                coordenadas: [-48.27870799046647,-18.95166631843632 ], 
+                cor: 'green',
+                categoria: 'Parque'
+            },
+            {
+                nome: "Targa Motors – 300 m", 
+                descricao: " Oportunidade: Possibilidade de aprendizado técnico em manutenção e engenharia automotiva ligada à tecnologia.Desafio: Ruído e tráfego de veículos.Diretriz de decisão: Manter distância controlada e barreiras acústicas no lado norte.",
+                coordenadas: [-48.289219548137666,-18.949178192520947], 
+                cor: 'orange',
+                categoria: 'Serviço'
+            },
+             {
+                nome: "Bairro Cidade Jardim – 100 m", 
+                descricao: "Oportunidade: Bairro consolidado e misto, que oferece vitalidade urbana e comércio local.Desafio: Trânsito local e diversidade de usos exigem planejamento de acessos.Diretriz de decisão: Aproveitar o dinamismo do bairro, criando percursos e áreas de convivência pública integradas.",
+                coordenadas: [-48.297060946830236,-18.946135388568113], 
+                cor: 'yellow',
+                categoria: 'Residencial'
+            },
+            {
+                nome: "Condomínio Reserva do Vale – 50 m", 
+                descricao: " Oportunidade: Contexto valorizado que reforça o prestígio do campus.Desafio: Zona sensível a ruído e movimento intenso.Diretriz de decisão: Manter interface paisagística calma e reservada com fachadas silenciosas.",
+                coordenadas: [-48.285629975123925,-18.946703696810584], 
+                cor: 'yellow',
+                categoria: 'Residencial'
+            },
+            {
+                nome: "Condomínio Gávea Hill II – 300 m", 
+                descricao: "Oportunidade: Complementa o perfil residencial nobre do entorno.Desafio: Evitar impacto visual excessivo.Diretriz de decisão: Trabalhar gabaritos controlados e integração visual com o entorno.",
+                coordenadas: [-48.28077753279527,-18.950237856080566], 
+                cor: 'yellow',
+                categoria: 'Residencial'
+            },
+            {
+                nome: "Morada da Colina / Villaggio da Colina / Jardim da Colina – 850 m", 
+                descricao: " Oportunidade: Fortalece a imagem de qualidade de vida e segurança da região.Desafio: Pouca permeabilidade urbana (bairros fechados).Diretriz de decisão: Tornar o campus um espaço de encontro público, reforçando o papel social da universidade.",
+                coordenadas: [-48.275887375123965,-18.94786070226429], 
+                cor: 'yellow',
+                categoria: 'Residencial'
+            },
+            {
+                nome: "Faculdade Anhanguera – 600 m", 
+                descricao: "Oportunidade: Permite colaborações em áreas complementares (engenharias, gestão).Desafio: Competição por público estudantil.Diretriz de decisão: Focar na formação técnica especializada e em parcerias estratégicas.",
+                coordenadas: [-48.28067848861697,-18.94688343460231], 
+                cor: 'grey',
+                categoria: 'Institucional'
+            },
+             {
+                nome: "My Broker – 800 m", 
+                descricao: " Oportunidade: Potencial parceiro para gestão imobiliária e desenvolvimento urbano no entorno.Desafio: Alta valorização imobiliária pode aumentar custos de expansão.Diretriz de decisão: Antecipar zoneamento e prever margens de crescimento sustentável.",
+                coordenadas: [-48.27771063733702,-18.95135235041892], 
+                cor: 'orange',
+                categoria: 'Serviço'
+            },
+              {
+                nome: "Hospital UMC – 1,5 km", 
+                descricao: " Oportunidade: Demanda potencial para cursos de TI aplicados à saúde digital e segurança de dados hospitalares.Desafio: Tráfego de ambulâncias e ruídos ocasionais.Diretriz de decisão: Implantar tratamento acústico na fachada voltada para o hospital e promover parcerias de pesquisa em e-health.",
+                coordenadas: [-48.269579947864415,-18.947285824347848], 
+                cor: 'grey',
+                categoria: 'Institucional'
+            },
+              {
+                nome: "Faculdade UNA – 1,5 km", 
+                descricao: " Oportunidade: Integração acadêmica e possibilidade de compartilhamento de conhecimento e eventos.Desafio: Evitar sobreposição de cursos.Diretriz de decisão: Destacar a singularidade da universidade como referência nacional em cibersegurança.",
+                coordenadas: [-48.27121015230063,-18.947649815804628], 
+                cor: 'grey',
+                categoria: 'Institucional'
+            },
+            {
+                nome: "Pátio Vinhedos", 
+                descricao: " Oportunidade: Centro comercial consolidado que oferece diversas opções de lazer e serviços para a comunidade acadêmica.Desafio: Distância considerável do campus pode limitar o uso frequente.Diretriz de decisão: Promover transporte compartilhado e eventos conjuntos para aumentar a interação.",
+                coordenadas: [-48.27009000672441,-18.952171538448138], 
+                cor: 'red',
+                categoria: 'Comércio'
+            },
+           
+        ];
+
+        pontos.forEach(function(ponto) {
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.style.backgroundColor = ponto.cor; 
+
+            new mapboxgl.Marker({element: el}) 
+                .setLngLat(ponto.coordenadas)
+                .setPopup(new mapboxgl.Popup({ offset: 25 })
+                    .setHTML(`<h3>${ponto.nome}</h3><p>${ponto.descricao}</p>`))
+                .addTo(map);
+        });
+
+        function generateLegend() {
+            const legendContent = document.getElementById('legend-content');
+            legendContent.innerHTML = ''; 
+            
+            const categoriasUnicas = {}; 
+            pontos.forEach(ponto => {
+                const label = ponto.categoria || ponto.nome; 
+                if (!categoriasUnicas[label]) {
+                    categoriasUnicas[label] = ponto.cor;
+                }
+            });
+
+            for (const categoriaLabel in categoriasUnicas) {
+                const cor = categoriasUnicas[categoriaLabel];
+                const legendItemDiv = document.createElement('div');
+                legendItemDiv.className = 'legend-item';
+
+                const colorBox = document.createElement('div');
+                colorBox.className = 'legend-color-box';
+                colorBox.style.backgroundColor = cor;
+                colorBox.style.borderColor = (cor === 'black' || cor === '#000000') ? '#999' : cor; 
+
+                const labelElement = document.createElement('span');
+                labelElement.textContent = categoriaLabel;
+
+                legendItemDiv.appendChild(colorBox);
+                legendItemDiv.appendChild(labelElement);
+                legendContent.appendChild(legendItemDiv);
+            }
+        }
+
+        map.on('load', function() {
+            generateLegend();
+            map.addControl(new mapboxgl.NavigationControl());
+            map.addControl(new mapboxgl.FullscreenControl());
+        });
+
+    </script>
+</body>
+</html>
